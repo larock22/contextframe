@@ -1,0 +1,41 @@
+---
+description: Use this to understand basic information about contextframe and FrameRecords and FrameDatasets
+globs: 
+alwaysApply: false
+---
+# ContextFrame Concepts Guide
+
+This rule explains the core components of the ContextFrame specification and Python package.
+
+## Overview
+
+**ContextFrame** is a specification and Python package designed to manage structured context for LLMs using the `.lance` file format. It combines the performance of Lance with a standardized schema and user-friendly abstractions for handling documents containing text content, rich metadata, vector embeddings, and explicit relationships.
+
+-   **Specification:** Defines a standard schema for storing context data. See the schema definition in [contextframe_schema.py](mdc:mdp/mdp/mdp/contextframe/schema/contextframe_schema.py) and its JSON representation [contextframe_schema.json](mdc:mdp/mdp/mdp/contextframe/schema/contextframe_schema.json).
+-   **Goal:** Simplify context management for AI/ML workflows by providing a consistent format and API on top of Lance. See the overall vision in [README.md](mdc:mdp/mdp/mdp/README.md).
+
+## Core Classes
+
+The primary abstractions are defined in [contextframe/frame.py](mdc:mdp/mdp/mdp/contextframe/frame.py):
+
+### `FrameRecord`
+
+-   Represents a **single logical document** or row within a ContextFrame dataset, held in memory.
+-   Encapsulates `text_content`, `metadata` (conforming to the schema), and `vector` embeddings.
+    -   The `metadata` dictionary includes standard fields (title, author, source info, relationships, etc.) **and crucially, user-editable fields** like `context` and `custom_metadata`.
+-   Handles **schema validation** upon creation/modification.
+-   Provides **convenience methods** like `FrameRecord.create()` for easier instantiation and `.add_relationship()` for managing connections between documents.
+-   Allows **direct modification** of metadata fields (e.g., `record.metadata['context'] = 'New user context'`, `record.metadata['custom_metadata']['status'] = 'reviewed'`), enabling users to layer their own semantic understanding and workflow state onto the data **after initial creation**.
+-   Manages conversion to/from PyArrow Tables (`.to_table()`, `.from_arrow()`) for compatibility with the underlying Lance dataset operations.
+
+### `FrameDataset`
+
+-   Acts as a **high-level wrapper** around a `lance.LanceDataset` object stored in a `.lance` directory.
+-   Ensures operations interact with data conforming to the **ContextFrame schema**.
+-   Provides **simplified methods** for common dataset tasks:
+    -   `.create()`: Creates a new, empty Lance dataset initialized with the ContextFrame schema.
+    -   `.open()`: Opens an existing ContextFrame Lance dataset.
+    -   `.add()` / `.add_many()`: Adds one or more `FrameRecord` instances to the dataset, performing validation first.
+    -   `.from_dataset_row()`: Loads a specific `FrameRecord` from the dataset by its UUID.
+    -   `.nearest()`: A convenience wrapper for vector similarity search on the `vector` column.
+-   Allows access to the underlying `lance.LanceDataset` via the `._native` property for advanced queries or operations not directly exposed by the wrapper.
