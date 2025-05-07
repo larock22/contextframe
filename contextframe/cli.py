@@ -311,7 +311,7 @@ def _handle_version_create(args):
             current_version = doc.metadata.get("version", "0.0.0")
             
             # Use the next version based on bump type
-            from .helpers.metadata_utils import is_semantic_version, next_version
+            from . import is_semantic_version, next_version
             if not is_semantic_version(current_version):
                 version = "0.1.0"  # Start at 0.1.0 if current version isn't semantic
             else:
@@ -673,7 +673,7 @@ def _handle_conflict_merge(args):
         output_path = args.output if args.output else local_path
         
         # Try to auto-merge
-        from .conflict import ConflictError
+        from . import ConflictError
         try:
             _ = local_doc.auto_merge(remote_doc, output_path)
             print(f"Successfully merged documents to {output_path}")
@@ -728,7 +728,7 @@ def _handle_conflict_apply_resolution(args):
     
     try:
         # Apply resolution
-        from .conflict import ConflictError
+        from . import ConflictError
         try:
             _ = FrameRecord.resolve_from_conflict_file(resolution_path, output_path)
             print(f"Successfully applied conflict resolution to {output_path}")

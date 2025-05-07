@@ -127,6 +127,10 @@ nav:
   - Core Concepts:
 
   - Integration:
+    - Installation: 'integration/installation.md'
+    - Python API: 'integration/python_api.md'
+    - Object Storage: 'integration/object_storage.md'
+    - Blobs: 'integration/blobs.md'
 
   - CLI Reference:
 

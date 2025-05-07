@@ -11,6 +11,7 @@ get_standard_fields        – expose STANDARD_METADATA_FIELDS
 is_semantic_version        – version helpers (compare / next_version)
 compare_semantic_versions
 next_version
+validate_relationships     – validate a list of relationship objects
 
 All functions are intentionally *pure* (no I/O).
 """
@@ -57,6 +58,7 @@ def generate_uuid() -> str:
 
 
 def is_valid_uuid(value: str) -> bool:  # noqa: D401
+    """Check if a string is a valid UUID."""
     try:
         _uuid.UUID(value)
         return True
@@ -65,6 +67,7 @@ def is_valid_uuid(value: str) -> bool:  # noqa: D401
 
 
 def is_semantic_version(v: str) -> bool:
+    """Check if a string matches the semantic version pattern (X.Y.Z)."""
     return bool(SEMVER_RE.match(v))
 
 
@@ -79,8 +82,31 @@ def compare_semantic_versions(v1: str, v2: str) -> int:
     return (t1 > t2) - (t1 < t2)
 
 
-def next_version(current: str, version_type: str = "patch") -> str:
-    major, minor, patch = map(int, SEMVER_RE.match(current).groups())  # type: ignore[arg-type]
+def next_version(current: str, *, version_type: str = "patch") -> str:
+    """Increment a semantic version string.
+
+    Parameters
+    ----------
+    current : str
+        The current semantic version string (e.g., "1.0.3").
+    version_type : str, optional
+        The type of version bump: "major", "minor", or "patch".
+        Defaults to "patch".
+
+    Returns
+    -------
+    str
+        The next semantic version string.
+
+    Raises
+    ------
+    ValueError
+        If `current` is not a valid semantic version string.
+    """
+    match = SEMVER_RE.match(current)
+    if not match:
+        raise ValueError(f"Invalid semantic version string: {current}")
+    major, minor, patch = map(int, match.groups())
     if version_type == "major":
         major += 1
         minor = patch = 0
@@ -124,8 +150,8 @@ def create_metadata(base: dict[str, Any] | None = None, **kwargs: Any) -> dict[s
 
 def create_relationship(
     reference: str,
-    rel_type: str = "related",
     *,
+    rel_type: str = "related",
     title: str | None = None,
     description: str | None = None,
 ) -> dict[str, Any]:
@@ -147,10 +173,35 @@ def create_relationship(
 
 
 def add_relationship_to_metadata(meta: dict[str, Any], rel: dict[str, Any]) -> None:
+    """Append a relationship dictionary to the 'relationships' list in metadata.
+
+    If the 'relationships' key does not exist in `meta`, it will be created.
+
+    Parameters
+    ----------
+    meta : dict[str, Any]
+        The metadata dictionary to modify.
+    rel : dict[str, Any]
+        The relationship dictionary to add.
+    """
     meta.setdefault("relationships", []).append(rel)
 
 
 def validate_relationships(rels: list[dict[str, Any]]) -> None:
+    """Validate a list of relationship objects.
+
+    Ensures each relationship has a valid type and at least one identifier.
+
+    Parameters
+    ----------
+    rels : list[dict[str, Any]]
+        A list of relationship dictionaries to validate.
+
+    Raises
+    ------
+    ValueError
+        If any relationship is invalid.
+    """
     for r in rels:
         if "type" not in r or r["type"] not in VALID_RELATIONSHIP_TYPES:
             raise ValueError(f"Invalid relationship type in {r}")
@@ -161,7 +212,6 @@ def validate_relationships(rels: list[dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Public re-exports for package root convenience
 # ---------------------------------------------------------------------------
-from ..schema.contextframe_schema import RecordType  # Re‐export for convenience
 
 __all__ = [
     "create_metadata",
@@ -172,9 +222,9 @@ __all__ = [
     "is_semantic_version",
     "compare_semantic_versions",
     "next_version",
-    "RecordType",
 ]
 
 
 def get_standard_fields():  # noqa: D401
+    """Return a copy of the standard metadata fields."""
     return STANDARD_METADATA_FIELDS.copy() 

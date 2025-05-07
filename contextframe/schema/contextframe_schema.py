@@ -139,13 +139,18 @@ def build_schema(embed_dim: int = DEFAULT_EMBED_DIM) -> pa.Schema:  # noqa: D401
         pa.field("record_type", pa.string()),
         # Optional fields for raw multimodal data
         pa.field("raw_data_type", pa.string()),  # MIME type (e.g., "image/jpeg")
-        pa.field("raw_data", pa.binary()),        # Raw byte content
+        # Large binary column flagged as blob for efficient lazy loading
+        pa.field(
+            "raw_data",
+            pa.large_binary(),
+            metadata={"lance-encoding:blob": "true"},
+        ),  # Raw byte content stored as Lance Blob
     ]
 
     return pa.schema(fields)
 
 
-def get_schema(embed_dim: int | None = None) -> pa.Schema:  # noqa: D401
+def get_schema(*, embed_dim: int | None = None) -> pa.Schema:  # noqa: D401
     """Public helper returning the canonical schema.
 
     Lazily creates and caches the schema object.

@@ -6,15 +6,15 @@ metadata, including support for validation profiles, conditional validation,
 and custom rules.
 """
 
-import os
 import json
-import re
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Callable, Set, Tuple
 import jsonschema
-from jsonschema import Draft7Validator, validators
-
+import os
+import re
 from ..exceptions import ValidationError
+from collections.abc import Callable
+from jsonschema import Draft7Validator, validators
+from pathlib import Path
+from typing import Any, Optional, Union
 
 # Default schema path (canonical JSON schema for Context Frame metadata)
 DEFAULT_SCHEMA_PATH = os.path.join(
@@ -24,7 +24,7 @@ DEFAULT_SCHEMA_PATH = os.path.join(
 )
 
 # Cache for loaded schemas
-_schema_cache: Dict[str, Dict[str, Any]] = {}
+_schema_cache: dict[str, dict[str, Any]] = {}
 
 # Validation profiles
 VALIDATION_PROFILES = {
@@ -77,15 +77,14 @@ def extend_with_default(validator_class):
             if "default" in subschema and instance is not None and property not in instance:
                 instance[property] = subschema["default"]
 
-        for error in validate_properties(validator, properties, instance, schema):
-            yield error
+        yield from validate_properties(validator, properties, instance, schema)
 
     return validators.extend(validator_class, {"properties": set_defaults})
 
 # Create validator with default value support
 DefaultSettingValidator = extend_with_default(ExtendedValidator)
 
-def load_schema(schema_path: Optional[str] = None) -> Dict[str, Any]:
+def load_schema(schema_path: str | None = None) -> dict[str, Any]:
     """
     Load a JSON schema from a file, with caching for performance.
     
@@ -107,22 +106,22 @@ def load_schema(schema_path: Optional[str] = None) -> Dict[str, Any]:
         return _schema_cache[schema_path]
     
     try:
-        with open(schema_path, 'r', encoding='utf-8') as f:
+        with open(schema_path, encoding='utf-8') as f:
             schema = json.load(f)
         
         # Cache the schema
         _schema_cache[schema_path] = schema
         return schema
     except json.JSONDecodeError as e:
-        raise ValidationError(f"Invalid JSON schema: {e}")
+        raise ValidationError(f"Invalid JSON schema: {e}") from e
 
 def validate_metadata_with_schema(
-    metadata: Dict[str, Any], 
-    schema_path: Optional[str] = None,
-    profile: Optional[str] = None,
+    metadata: dict[str, Any], 
+    schema_path: str | None = None,
+    profile: str | None = None,
     set_defaults: bool = True,
     additional_properties: bool = False
-) -> Tuple[bool, Dict[str, str]]:
+) -> tuple[bool, dict[str, str]]:
     """
     Validate metadata against a JSON schema with extended capabilities.
     
@@ -179,7 +178,7 @@ def create_validation_rule(
     field_name: str,
     validation_func: Callable[[Any], bool],
     error_message: str
-) -> Callable[[Dict[str, Any]], Optional[str]]:
+) -> Callable[[dict[str, Any]], str | None]:
     """
     Create a custom validation rule function.
     
@@ -191,7 +190,7 @@ def create_validation_rule(
     Returns:
         A validation function that takes metadata and returns None or an error message.
     """
-    def validation_rule(metadata: Dict[str, Any]) -> Optional[str]:
+    def validation_rule(metadata: dict[str, Any]) -> str | None:
         # Skip validation if field is not present
         if field_name not in metadata:
             return None
@@ -205,9 +204,9 @@ def create_validation_rule(
     return validation_rule
 
 def validate_metadata_with_rules(
-    metadata: Dict[str, Any],
-    rules: List[Callable[[Dict[str, Any]], Optional[str]]]
-) -> Tuple[bool, Dict[str, str]]:
+    metadata: dict[str, Any],
+    rules: list[Callable[[dict[str, Any]], str | None]]
+) -> tuple[bool, dict[str, str]]:
     """
     Validate metadata using custom validation rules.
     
@@ -230,9 +229,9 @@ def validate_metadata_with_rules(
     return (len(errors) == 0, errors)
 
 def validate_metadata_conditional(
-    metadata: Dict[str, Any],
-    conditions: Dict[str, Dict[str, List[str]]]
-) -> Tuple[bool, Dict[str, str]]:
+    metadata: dict[str, Any],
+    conditions: dict[str, dict[str, list[str]]]
+) -> tuple[bool, dict[str, str]]:
     """
     Validate metadata with conditional requirements.
     
@@ -265,10 +264,10 @@ def validate_metadata_conditional(
     return (len(errors) == 0, errors)
 
 def validate_relationships_advanced(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     validate_references: bool = False,
-    base_dir: Optional[str] = None
-) -> Tuple[bool, Dict[str, str]]:
+    base_dir: str | None = None
+) -> tuple[bool, dict[str, str]]:
     """
     Perform advanced validation of relationship references.
     
@@ -316,16 +315,16 @@ def validate_relationships_advanced(
     return (len(errors) == 0, errors)
 
 def validate_metadata_complete(
-    metadata: Dict[str, Any],
-    schema_path: Optional[str] = None,
-    profile: Optional[str] = None,
-    custom_rules: Optional[List[Callable]] = None,
-    conditions: Optional[Dict[str, Dict[str, List[str]]]] = None,
+    metadata: dict[str, Any],
+    schema_path: str | None = None,
+    profile: str | None = None,
+    custom_rules: list[Callable] | None = None,
+    conditions: dict[str, dict[str, list[str]]] | None = None,
     validate_references: bool = False,
-    base_dir: Optional[str] = None,
+    base_dir: str | None = None,
     set_defaults: bool = True,
     additional_properties: bool = False
-) -> Tuple[bool, Dict[str, str]]:
+) -> tuple[bool, dict[str, str]]:
     """
     Comprehensive metadata validation with all validation mechanisms.
     
@@ -375,7 +374,7 @@ def validate_metadata_complete(
     
     return (len(all_errors) == 0, all_errors)
 
-def validate_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+def validate_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     """
     Validate metadata using schema validation.
     This is a compatibility function that delegates to validate_metadata_with_schema.

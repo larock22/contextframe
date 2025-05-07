@@ -23,11 +23,8 @@ try:
 except ModuleNotFoundError as exc:
     raise ImportError("lance is required for contextframe.frame. Please install contextframe with the 'lance' extra.") from exc
 
-from .helpers.metadata_utils import (  # local import to avoid cycles
-    add_relationship_to_metadata,
-    create_relationship,
-)
-from .schema.contextframe_schema import DEFAULT_EMBED_DIM, get_schema
+from . import add_relationship_to_metadata, create_relationship, get_schema
+from .schema.contextframe_schema import DEFAULT_EMBED_DIM
 from .schema.validation import validate_metadata_with_schema
 
 # ---------------------------------------------------------------------------
@@ -36,18 +33,74 @@ from .schema.validation import validate_metadata_with_schema
 
 
 class FrameRecord:
-    """In-memory representation of one Frame row."""
+    """In-memory representation of one Frame row.
+
+    Attributes
+    ----------
+    text_content : str
+        The primary textual content of the frame.
+    metadata : dict[str, Any]
+        A dictionary containing metadata for the frame.
+    vector : np.ndarray
+        The vector embedding for the frame.
+    embed_dim : int
+        The dimension of the embedding vector.
+    raw_data : bytes | None
+        Raw binary data associated with the frame (e.g., image bytes).
+    raw_data_type : str | None
+        The MIME type for `raw_data`.
+    path : Path | None
+        The file system path to the Lance dataset (.lance directory) this record
+        is associated with. It is typically set when a record is loaded from
+        or saved to a dataset. It can be used as the default location for
+        a subsequent `save()` operation if no explicit path is provided.
+
+    """
 
     def __init__(
         self,
         text_content: str,
         metadata: dict[str, Any],
+        *,
         vector: np.ndarray | None = None,
         embed_dim: int = DEFAULT_EMBED_DIM,
         raw_data: bytes | None = None,
         raw_data_type: str | None = None,
         dataset_path: Path | None = None,
     ) -> None:
+        """
+        Initialize a FrameRecord.
+
+        Parameters
+        ----------
+        text_content : str
+            The primary textual content of the frame.
+        metadata : dict[str, Any]
+            A dictionary containing metadata for the frame.
+            A copy of this dictionary will be stored.
+        vector : np.ndarray | None, optional
+            The vector embedding for the frame. If None, a zero vector of
+            `embed_dim` will be created. Defaults to None.
+        embed_dim : int, optional
+            The dimension of the embedding vector.
+            Defaults to `DEFAULT_EMBED_DIM`.
+        raw_data : bytes | None, optional
+            Raw binary data associated with the frame (e.g., image bytes).
+            If provided, `raw_data_type` must also be provided. Defaults to None.
+        raw_data_type : str | None, optional
+            The MIME type for `raw_data`. Required if `raw_data` is provided.
+            Defaults to None.
+        dataset_path : Path | None, optional
+            The path to the Lance dataset this record is associated with.
+            This is often set when loading a record or after saving it.
+            Defaults to None.
+
+        Raises
+        ------
+        ValueError
+            If `raw_data` is provided without `raw_data_type` or vice-versa.
+            If `vector` is provided and its length does not match `embed_dim`.
+        """
         self.text_content = text_content
         # Ensure we have a copy so callers cannot mutate unexpectedly
         self.metadata: dict[str, Any] = dict(metadata)
@@ -102,7 +155,7 @@ class FrameRecord:
                 arrays[name] = pa.FixedSizeListArray.from_arrays(pa.array(self.vector),  # type: ignore[arg-type]
                                                                  field.type.list_size)
             elif name == "raw_data":
-                arrays[name] = self._arrowify_scalar(name, self.raw_data, pa.binary())
+                arrays[name] = self._arrowify_scalar(name, self.raw_data, pa.large_binary())
             elif name == "raw_data_type":
                 arrays[name] = self._arrowify_scalar(name, self.raw_data_type, pa.string())
             elif name == "contributors" and "contributors" in meta:
@@ -122,7 +175,8 @@ class FrameRecord:
         return pa.Table.from_arrays(arrays.values(), schema=schema)
 
     # Convenience alias
-    def to_arrow(self) -> pa.Table:  # noqa: D401
+    def to_arrow(self) -> pa.Table:
+        """Return a 1-row Arrow Table matching the canonical schema."""
         return self.to_table()
 
     # ------------------------------------------------------------------
@@ -150,10 +204,14 @@ class FrameRecord:
         raw_data = tbl.get("raw_data", [None])[0]
         raw_data_type = tbl.get("raw_data_type", [None])[0]
 
+        # Determine embed_dim from the loaded vector
+        current_embed_dim = len(vector) if vector is not None and vector.ndim > 0 else DEFAULT_EMBED_DIM
+
         return cls(
             text_content=text_content,
             metadata=metadata,
             vector=vector,
+            embed_dim=current_embed_dim, # Pass the determined embed_dim
             raw_data=raw_data,
             raw_data_type=raw_data_type,
             dataset_path=dataset_path
@@ -167,6 +225,7 @@ class FrameRecord:
     def create(
         cls,
         title: str,
+        *,
         content: str = "",
         embed_dim: int = DEFAULT_EMBED_DIM,
         vector: np.ndarray | None = None,
@@ -174,7 +233,10 @@ class FrameRecord:
         raw_data_type: str | None = None,
         **metadata: Any,
     ) -> FrameRecord:
-        """User-friendly constructor mirroring the legacy ``Document.create`` API.
+        """Create a new FrameRecord with common metadata fields.
+
+        This is a user-friendly factory method for creating FrameRecord instances.
+        It ensures the 'title' is set and provides clear parameters for common fields.
 
         Parameters
         ----------
@@ -195,30 +257,45 @@ class FrameRecord:
             Optional MIME type for raw_data (required if raw_data is provided).
         **metadata:
             Additional key/value pairs to store in the document metadata.
+            The 'title', 'raw_data', and 'raw_data_type' if passed through here
+            will be overridden by the explicit parameters.
         """
         if "title" in metadata:
-            raise ValueError("'title' should be passed as the *title* argument, not as metadata.")
-        # Ensure title always present (required by schema)
-        metadata["title"] = title
+            # Allow if it's the same as the title argument, or warn, or just let it be overwritten
+            # For now, let explicit param win.
+            pass
+        
+        # Explicit parameters take precedence and are added to the metadata dict
+        # which will be passed to the constructor.
+        current_metadata = metadata.copy() # Work with a copy
+        current_metadata["title"] = title
 
-        # Extract raw data args if passed via metadata kwargs (discouraged but handle)
-        raw_data = metadata.pop('raw_data', None)
-        raw_data_type = metadata.pop('raw_data_type', None)
+        # The raw_data and raw_data_type are passed directly to the constructor,
+        # not through the metadata dict for the constructor.
+        # The earlier check for raw_data/raw_data_type in metadata.pop was removed
+        # because they are now explicit params.
 
         return cls(
             text_content=content,
-            metadata=metadata,
+            metadata=current_metadata, # Pass the processed metadata
             vector=vector,
             embed_dim=embed_dim,
-            raw_data=raw_data,
-            raw_data_type=raw_data_type,
+            raw_data=raw_data, # Pass explicit raw_data
+            raw_data_type=raw_data_type, # Pass explicit raw_data_type
+            # dataset_path is not set at creation time by this factory.
         )
 
     # ------------------------------------------------------------------
-    # Legacy compatibility helpers (save / load)
+    # Single-record dataset persistence
     # ------------------------------------------------------------------
 
-    def save(self, path: Path | str | None = None, overwrite_dataset: bool = False) -> Path:
+    def save(
+        self,
+        path: Path | str | None = None,
+        *,
+        overwrite_dataset: bool = False,
+        storage_options: dict | None = None,
+    ) -> Path:
         """Persist this FrameRecord into a Lance dataset.
 
         The *path* must point to a directory ending with ``.lance``
@@ -226,38 +303,74 @@ class FrameRecord:
         created automatically.  When *overwrite_dataset* is *True* and the
         directory exists, it will be **fully replaced** with a fresh, empty
         dataset before inserting this record.
+
+        Parameters
+        ----------
+        path:
+            Local or remote URI where the dataset should live.  If *None* and
+            the record has been loaded from an existing dataset, that path is
+            reused.
+        overwrite_dataset:
+            When *True* and *path* already contains a dataset it is deleted
+            first (local file-system only).
+        storage_options:
+            Optional mapping forwarded to :pyclass:`FrameDataset.create` /
+            :pyclass:`FrameDataset.open` for remote object-store
+            configuration.
         """
-        if path is None and self.path is None:
+        # Preserve remote URIs as *strings* because pathlib will mangle the
+        # double slash (e.g. "s3://" → "s3:/").  We therefore keep both a
+        # raw string variant and a local-Path variant for checks that only
+        # make sense on the local file system.
+
+        def _is_remote(uri: str) -> bool:
+            return "://" in uri  # crude but sufficient (s3://, gs://, az://, ...)
+
+        if path is not None:
+            raw_uri = str(path)
+        elif self.path is not None:
+            raw_uri = str(self.path)
+        else:
             raise ValueError("No dataset path provided and FrameRecord has no existing path reference.")
 
-        dataset_path = Path(path) if path is not None else Path(self.path)  # type: ignore[arg-type]
+        is_remote = _is_remote(raw_uri)
 
+        # Only wrap in Path for local paths where OS checks make sense.
+        dataset_path_obj: Path | None = None if is_remote else Path(raw_uri)
 
-        if dataset_path.suffix != ".lance" and not dataset_path.name.endswith(".lance"):
+        if not is_remote:
+            dataset_path = dataset_path_obj  # type: ignore[assignment]
+        else:
+            dataset_path = raw_uri  # type: ignore[assignment]
+
+        # Suffix checks only apply to local Path objects.
+        if (not is_remote and dataset_path_obj and dataset_path_obj.suffix != ".lance") or (
+            is_remote and not raw_uri.endswith(".lance")
+        ):
             raise ValueError(
                 f"Dataset path must point to a '.lance' directory. Received: {dataset_path}"
             )
 
         # Create or open dataset
-        if dataset_path.exists() and overwrite_dataset:
+        if not is_remote and dataset_path_obj and dataset_path_obj.exists() and overwrite_dataset:
             # Dangerously wipe the dataset directory before re-creating.
             import shutil
 
-            shutil.rmtree(dataset_path)
+            shutil.rmtree(dataset_path_obj)
 
-        if not dataset_path.exists():
-            ds = FrameDataset.create(dataset_path, embed_dim=self.embed_dim)
+        if (not is_remote and dataset_path_obj and not dataset_path_obj.exists()) or is_remote:
+            ds = FrameDataset.create(raw_uri, embed_dim=self.embed_dim, storage_options=storage_options)
         else:
-            ds = FrameDataset.open(dataset_path)
+            ds = FrameDataset.open(raw_uri, storage_options=storage_options)
 
         ds.add(self)
-        # Store for subsequent calls
-        self.path = dataset_path
+        # Store the *original* URI/path for subsequent calls.
+        self.path = Path(raw_uri) if not is_remote else raw_uri  # type: ignore[arg-type]
 
         return dataset_path
 
     @classmethod
-    def from_file(cls, path: Path | str) -> FrameRecord:  # noqa: D401
+    def from_file(cls, path: Path | str) -> FrameRecord:
         """Load a FrameRecord from a Lance dataset directory containing exactly one row."""
         dataset_path = Path(path)
 
@@ -284,7 +397,7 @@ class FrameRecord:
     # New granular helpers
     # ------------------------------------------------------------------
 
-    def write_to_dataset(self, dataset_path: str | Path, overwrite_dataset: bool = False) -> None:
+    def write_to_dataset(self, dataset_path: str | Path, *, overwrite_dataset: bool = False) -> None:
         """Alias for :py:meth:`save` to maintain naming symmetry with spec."""
         self.save(dataset_path, overwrite_dataset=overwrite_dataset)
 
@@ -305,70 +418,84 @@ class FrameRecord:
         return cls.from_arrow(tbl, dataset_path=Path(dataset_path))
 
     # ------------------------------------------------------------------
-    # Convenience accessors for legacy attribute names
+    # Property accessors for common metadata
     # ------------------------------------------------------------------
 
     # Textual content alias
     @property
-    def content(self) -> str:  # noqa: D401
+    def content(self) -> str:
+        """Get or set the textual content of the frame."""
         return self.text_content
 
     @content.setter
-    def content(self, value: str) -> None:  # noqa: D401
+    def content(self, value: str) -> None:
+        """Set the textual content of the frame."""
         self.text_content = value
 
     @property
-    def title(self) -> str:  # noqa: D401
+    def title(self) -> str:
+        """Get or set the title from metadata."""
         return self.metadata.get("title", "")
 
     @title.setter
-    def title(self, value: str) -> None:  # noqa: D401
+    def title(self, value: str) -> None:
+        """Set the title in metadata."""
         self.metadata["title"] = value
 
     @property
-    def author(self) -> str | None:  # noqa: D401
+    def author(self) -> str | None:
+        """Get or set the author from metadata."""
         return self.metadata.get("author")
 
     @author.setter
-    def author(self, value: str | None) -> None:  # noqa: D401
+    def author(self, value: str | None) -> None:
+        """Set the author in metadata."""
         if value is None:
             self.metadata.pop("author", None)
         else:
             self.metadata["author"] = value
 
     @property
-    def created_at(self) -> str | None:  # noqa: D401
+    def created_at(self) -> str | None:
+        """Get the creation timestamp from metadata."""
         return self.metadata.get("created_at")
 
     @property
-    def updated_at(self) -> str | None:  # noqa: D401
+    def updated_at(self) -> str | None:
+        """Get the update timestamp from metadata."""
         return self.metadata.get("updated_at")
 
     @property
-    def tags(self) -> list[str] | None:  # noqa: D401
+    def tags(self) -> list[str] | None:
+        """Get or set the tags from metadata."""
         return self.metadata.get("tags")
 
     @tags.setter
-    def tags(self, value: list[str] | None) -> None:  # noqa: D401
+    def tags(self, value: list[str] | None) -> None:
+        """Set the tags in metadata."""
         if value is None:
             self.metadata.pop("tags", None)
         else:
             self.metadata["tags"] = value
 
     # ------------------------------------------------------------------
-    # Relationship helpers (legacy API)
+    # Relationship helpers
     # ------------------------------------------------------------------
 
     def add_relationship(
         self,
         reference: str | FrameRecord,
+        *,
         relationship_type: str = "related",
         title: str | None = None,
         description: str | None = None,
     ) -> None:
-        """Add a relationship entry to this document's metadata.
+        """Add a relationship entry to this record's metadata.
 
-        The helper supports the old *Document.add_relationship* signature.
+        This convenience method uses `contextframe.create_relationship` and
+        `contextframe.add_relationship_to_metadata` to build and append a
+        relationship structure to the 'relationships' list in this record's
+        metadata.
         """
         if isinstance(reference, FrameRecord):
             # Use UUID reference when passing a full document object.
@@ -393,7 +520,8 @@ class FrameRecord:
     # ------------------------------------------------------------------
 
     @property
-    def uuid(self) -> str:  # noqa: D401
+    def uuid(self) -> str:
+        """Get the UUID from metadata."""
         return self.metadata["uuid"]
 
 
@@ -405,7 +533,8 @@ class FrameRecord:
 class FrameDataset:
     """High-level wrapper around a Lance dataset storing Frames."""
 
-    def __init__(self, dataset: _lance_ds.Dataset) -> None:  # noqa: D401
+    def __init__(self, dataset: _lance_ds.Dataset) -> None:
+        """Initialize a FrameDataset with a Lance dataset."""
         self._dataset = dataset
 
     # ------------------------------------------------------------------
@@ -416,24 +545,73 @@ class FrameDataset:
     def create(
         cls,
         path: str | Path,
+        *,
         embed_dim: int = DEFAULT_EMBED_DIM,
         overwrite: bool = False,
+        storage_options: dict | None = None,
     ) -> FrameDataset:
-        """Create a new, empty Lance dataset at *path*."""
-        path = str(path)
+        """Create a new, empty Lance dataset at *path*.
+
+        Parameters
+        ----------
+        path:
+            Local or remote URI to the dataset directory. When the URI
+            starts with ``s3://``, ``gs://`` or ``az://`` Lance will use the
+            corresponding object-store backend.
+        embed_dim:
+            Dimensionality of the embedding vector column.
+        overwrite:
+            If *True* and the destination already exists it is **replaced**.
+        storage_options:
+            Optional mapping with object-store configuration forwarded to
+            Lance.  See the `Lance object-store docs <https://lancedb.github.io/lance/object_store.html>`_
+            for the complete list of keys.  Ignored for local file-system
+            paths.
+        """
+        # Avoid pathlib for remote URIs because it mangles double slashes.
+        raw_uri = str(path)
+        is_remote = "://" in raw_uri
+
         schema = get_schema(embed_dim)
-        if Path(path).exists() and not overwrite:
+
+        if not is_remote and Path(raw_uri).exists() and not overwrite:
             raise FileExistsError(f"Dataset already exists at {path}. Pass overwrite=True to recreate.")
         tbl = pa.Table.from_arrays([], schema=schema)  # empty table with schema
         # `write_dataset` will create or overwrite based on directory state.
         # We wiped any existing dir in caller, so simply write.
-        ds = lance.write_dataset(tbl, path, schema=schema)
+        if storage_options is None:
+            ds = lance.write_dataset(tbl, raw_uri, schema=schema)
+        else:
+            ds = lance.write_dataset(tbl, raw_uri, schema=schema, storage_options=storage_options)
         return cls(ds)
 
     @classmethod
-    def open(cls, path: str | Path, version: int | None = None) -> FrameDataset:
-        """Open an existing Lance dataset."""
-        ds = _lance_ds(str(path), version=version)
+    def open(
+        cls,
+        path: str | Path,
+        *,
+        version: int | None = None,
+        storage_options: dict | None = None,
+    ) -> FrameDataset:
+        """Open an existing Lance dataset.
+
+        Parameters
+        ----------
+        path:
+            Local or remote URI to the dataset directory. For remote object
+            stores, use the appropriate URI scheme (e.g. ``s3://``).
+        version:
+            Optional dataset version to open.
+        storage_options:
+            A mapping of object store configuration parameters forwarded to
+            Lance. See the `Lance object-store docs <https://lancedb.github.io/lance/object_store.html>`_
+            for the full list of supported keys.
+        """
+        raw_uri = str(path)
+        if storage_options is None:
+            ds = _lance_ds(raw_uri, version=version)
+        else:
+            ds = _lance_ds(raw_uri, version=version, storage_options=storage_options)
         return cls(ds)
 
     # ------------------------------------------------------------------
@@ -453,6 +631,23 @@ class FrameDataset:
         self._dataset.insert(tbl, mode="append")
 
     def add_many(self, records: Iterable[FrameRecord]) -> None:
+        """Append multiple FrameRecords to the dataset efficiently.
+
+        This method validates each record's metadata before attempting to add
+        any of them. If any record is invalid, a ValueError is raised.
+        All records are combined into a single PyArrow Table before insertion
+        for better performance compared to adding one by one.
+
+        Parameters
+        ----------
+        records : Iterable[FrameRecord]
+            An iterable of FrameRecord instances to add to the dataset.
+
+        Raises
+        ------
+        ValueError
+            If metadata for any of the records is invalid according to the schema.
+        """
         tbls = []
         for rec in records:
             ok, errs = validate_metadata_with_schema(rec.metadata)
@@ -464,7 +659,7 @@ class FrameDataset:
         combined = pa.concat_tables(tbls)
         self._dataset.insert(combined, mode="append")
 
-    def merge(self, table: pa.Table, on: str = "uuid") -> None:  # noqa: D401
+    def merge(self, table: pa.Table, *, on: str = "uuid") -> None:
         """Merge additional columns using Lance merge."""
         self._dataset.merge(table, on)
 
@@ -560,34 +755,32 @@ class FrameDataset:
     # Query helpers
     # ------------------------------------------------------------------
 
-    def to_pandas(self, **kwargs):  # noqa: D401
+    def to_pandas(self, **kwargs):
+        """Convert the dataset to a Pandas DataFrame."""
         return self._dataset.to_table(**kwargs).to_pandas()
 
-    def nearest(self, query_vector: np.ndarray, k: int = 10, **kwargs):  # noqa: D401
+    def nearest(self, query_vector: np.ndarray, *, k: int = 10, **kwargs):
+        """Find k-nearest neighbors to a query vector."""
         return self._dataset.to_table(nearest={"column": "vector", "q": query_vector, "k": k}, **kwargs)
 
     # ------------------------------------------------------------------
     # Advanced scanner proxy (filter, columns, nearest, etc.)
     # ------------------------------------------------------------------
 
-    def scanner(self, **scan_kwargs):  # noqa: D401
-        """Return a ``LanceScanner`` with the provided keyword arguments.
-
-        Examples
-        --------
-        >>> ds.scanner(filter="status = 'published'").to_table()
-        >>> ds.scanner(nearest={"column": "vector", "q": qv, "k": 5}).to_table()
-        """
+    def scanner(self, **scan_kwargs):
+        """Return a LanceScanner for custom queries."""
         return self._dataset.scanner(**scan_kwargs)
 
     # ------------------------------------------------------------------
     # Versioning wrappers
     # ------------------------------------------------------------------
 
-    def versions(self) -> list[int]:  # noqa: D401
+    def versions(self) -> list[int]:
+        """List available versions of the dataset."""
         return list(range(self._dataset.version + 1))
 
-    def checkout(self, version: int) -> FrameDataset:  # noqa: D401
+    def checkout(self, version: int) -> FrameDataset:
+        """Checkout a specific version of the dataset."""
         return FrameDataset.open(self._dataset.uri, version=version)
 
     # ------------------------------------------------------------------
@@ -595,7 +788,8 @@ class FrameDataset:
     # ------------------------------------------------------------------
 
     @property
-    def _native(self):  # noqa: D401
+    def _native(self):
+        """Access the underlying native Lance dataset object."""
         return self._dataset
 
     def __repr__(self):
@@ -776,6 +970,7 @@ class FrameDataset:
     def find_related_to(
         self,
         identifier: str,
+        *,
         relationship_type: str | None = None,
     ) -> list[FrameRecord]:
         """Return records that have a relationship pointing at *identifier*.
@@ -946,7 +1141,7 @@ class FrameDataset:
                 results.append(FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri)))
         return results
 
-    def find_custom_metadata(self, key: str, value: str | None = None) -> list[FrameRecord]:
+    def find_custom_metadata(self, key: str, *, value: str | None = None) -> list[FrameRecord]:
         """Return rows whose ``custom_metadata`` map contains *key* (and optionally *value*)."""
         tbl = self.scanner().to_table()
         results: list[FrameRecord] = []
@@ -1057,6 +1252,7 @@ class FrameDataset:
 
     def create_vector_index(
         self,
+        *,
         index_type: str = "IVF_PQ",
         num_partitions: int | None = None,
         num_sub_vectors: int | None = None,
