@@ -45,24 +45,19 @@ You should see the current version number of the ContextFrame package.
 
 ### Environment Variables
 
-
 ### Configuration File
-
 
 ## Command Line Interface
 
 ContextFrame includes a command-line interface for working with ContextFrame files. After installation, the `contextframe` command will be available:
 
-
 ## Next Steps
 
 After installation, you may want to:
 
-
 ## Troubleshooting
 
 ### Common Issues
-
 
 ### Getting Help
 
@@ -70,4 +65,4 @@ If you encounter issues:
 
 - Check the [GitHub issues](https://github.com/greyhaven-ai/contextframe/issues)
 - Join the [discussion forum](https://github.com/greyhaven-ai/contextframe/discussions)
-- Read the [full documentation](https://greyhaven-ai.github.io/contextframe/) 
+- Read the [full documentation](https://greyhaven-ai.github.io/contextframe/)

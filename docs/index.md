@@ -5,7 +5,7 @@ author: "ContextFrame Team"
 status: "Draft"
 ---
 
-# ContextFrame
+## ContextFrame
 
 **A global standard file specification for document management with context and relationships.**
 
@@ -37,8 +37,7 @@ ContextFrame is a simple yet powerful file format that combines:
 
 ## Quick Example
 
-
-# Project Requirements
+## Project Requirements
 
 This document outlines the requirements for the project.
 
@@ -47,8 +46,7 @@ This document outlines the requirements for the project.
 1. The system shall provide user authentication
 2. The system shall allow document uploading
 3. The system shall support search functionality
-```
 
 ## Getting Started
 
-Visit the [Specification](specification/contextframe_specification.md) section to learn more about the ContextFrame format, or check out the [Integration](integration/installation.md) guide to start using ContextFrame in your projects. 
+Visit the [Specification](specification/contextframe_specification.md) section to learn more about the ContextFrame format, or check out the [Integration](integration/installation.md) guide to start using ContextFrame in your projects.

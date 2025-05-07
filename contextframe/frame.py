@@ -10,21 +10,25 @@ version access, etc.).
 from __future__ import annotations
 
 import datetime as _dt
-import uuid as _uuid
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
-
 import numpy as np
 import pyarrow as pa
+import uuid as _uuid
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any, Optional, Union
+
 try:
     import lance
     from lance import dataset as _lance_ds
 except ModuleNotFoundError as exc:
     raise ImportError("lance is required for contextframe.frame. Please install contextframe with the 'lance' extra.") from exc
 
-from .schema.contextframe_schema import get_schema, DEFAULT_EMBED_DIM
+from .helpers.metadata_utils import (  # local import to avoid cycles
+    add_relationship_to_metadata,
+    create_relationship,
+)
+from .schema.contextframe_schema import DEFAULT_EMBED_DIM, get_schema
 from .schema.validation import validate_metadata_with_schema
-from .helpers.metadata_utils import create_relationship, add_relationship_to_metadata  # local import to avoid cycles
 
 # ---------------------------------------------------------------------------
 # FrameRecord
@@ -37,16 +41,16 @@ class FrameRecord:
     def __init__(
         self,
         text_content: str,
-        metadata: Dict[str, Any],
-        vector: Optional[np.ndarray] = None,
+        metadata: dict[str, Any],
+        vector: np.ndarray | None = None,
         embed_dim: int = DEFAULT_EMBED_DIM,
-        raw_data: Optional[bytes] = None,
-        raw_data_type: Optional[str] = None,
-        dataset_path: Optional[Path] = None,
+        raw_data: bytes | None = None,
+        raw_data_type: str | None = None,
+        dataset_path: Path | None = None,
     ) -> None:
         self.text_content = text_content
         # Ensure we have a copy so callers cannot mutate unexpectedly
-        self.metadata: Dict[str, Any] = dict(metadata)
+        self.metadata: dict[str, Any] = dict(metadata)
         self.embed_dim = embed_dim
         self.path = dataset_path  # May be None, kept for backward compat
 
@@ -86,7 +90,7 @@ class FrameRecord:
     def to_table(self) -> pa.Table:
         """Return a 1-row Arrow Table matching the canonical schema."""
         schema = get_schema(self.embed_dim)
-        arrays: Dict[str, pa.Array] = {}
+        arrays: dict[str, pa.Array] = {}
 
         # Mapping between schema fields and metadata / attributes
         meta = self.metadata
@@ -126,7 +130,7 @@ class FrameRecord:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_arrow(cls, record_batch: pa.RecordBatch | pa.Table, dataset_path: Optional[Path] = None) -> "FrameRecord":
+    def from_arrow(cls, record_batch: pa.RecordBatch | pa.Table, dataset_path: Path | None = None) -> FrameRecord:
         """Create a FrameRecord from a 1-row RecordBatch/Table."""
         if len(record_batch) != 1:
             raise ValueError("from_arrow expects exactly 1 row")
@@ -135,7 +139,7 @@ class FrameRecord:
         vector_list = tbl["vector"][0]
         vector = np.array(vector_list, dtype=np.float32)
         text_content = tbl["text_content"][0]
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             k: v[0] if isinstance(v, list) else v for k, v in tbl.items() if k not in {"text_content", "vector"}
         }
         # Convert Map to dict
@@ -165,11 +169,11 @@ class FrameRecord:
         title: str,
         content: str = "",
         embed_dim: int = DEFAULT_EMBED_DIM,
-        vector: Optional[np.ndarray] = None,
-        raw_data: Optional[bytes] = None,
-        raw_data_type: Optional[str] = None,
+        vector: np.ndarray | None = None,
+        raw_data: bytes | None = None,
+        raw_data_type: str | None = None,
         **metadata: Any,
-    ) -> "FrameRecord":
+    ) -> FrameRecord:
         """User-friendly constructor mirroring the legacy ``Document.create`` API.
 
         Parameters
@@ -214,7 +218,7 @@ class FrameRecord:
     # Legacy compatibility helpers (save / load)
     # ------------------------------------------------------------------
 
-    def save(self, path: Optional[Union[Path, str]] = None, overwrite_dataset: bool = False) -> Path:
+    def save(self, path: Path | str | None = None, overwrite_dataset: bool = False) -> Path:
         """Persist this FrameRecord into a Lance dataset.
 
         The *path* must point to a directory ending with ``.lance``
@@ -253,7 +257,7 @@ class FrameRecord:
         return dataset_path
 
     @classmethod
-    def from_file(cls, path: Path | str) -> "FrameRecord":  # noqa: D401
+    def from_file(cls, path: Path | str) -> FrameRecord:  # noqa: D401
         """Load a FrameRecord from a Lance dataset directory containing exactly one row."""
         dataset_path = Path(path)
 
@@ -289,7 +293,7 @@ class FrameRecord:
         cls,
         dataset_path: str | Path,
         uuid: str,
-    ) -> "FrameRecord":
+    ) -> FrameRecord:
         """Load a specific row identified by *uuid* from a Lance dataset."""
         ds = FrameDataset.open(dataset_path)
         tbl = ds._native.scanner(filter=f"uuid = '{uuid}'").to_table()
@@ -322,30 +326,30 @@ class FrameRecord:
         self.metadata["title"] = value
 
     @property
-    def author(self) -> Optional[str]:  # noqa: D401
+    def author(self) -> str | None:  # noqa: D401
         return self.metadata.get("author")
 
     @author.setter
-    def author(self, value: Optional[str]) -> None:  # noqa: D401
+    def author(self, value: str | None) -> None:  # noqa: D401
         if value is None:
             self.metadata.pop("author", None)
         else:
             self.metadata["author"] = value
 
     @property
-    def created_at(self) -> Optional[str]:  # noqa: D401
+    def created_at(self) -> str | None:  # noqa: D401
         return self.metadata.get("created_at")
 
     @property
-    def updated_at(self) -> Optional[str]:  # noqa: D401
+    def updated_at(self) -> str | None:  # noqa: D401
         return self.metadata.get("updated_at")
 
     @property
-    def tags(self) -> Optional[List[str]]:  # noqa: D401
+    def tags(self) -> list[str] | None:  # noqa: D401
         return self.metadata.get("tags")
 
     @tags.setter
-    def tags(self, value: Optional[List[str]]) -> None:  # noqa: D401
+    def tags(self, value: list[str] | None) -> None:  # noqa: D401
         if value is None:
             self.metadata.pop("tags", None)
         else:
@@ -357,10 +361,10 @@ class FrameRecord:
 
     def add_relationship(
         self,
-        reference: str | "FrameRecord",
+        reference: str | FrameRecord,
         relationship_type: str = "related",
-        title: Optional[str] = None,
-        description: Optional[str] = None,
+        title: str | None = None,
+        description: str | None = None,
     ) -> None:
         """Add a relationship entry to this document's metadata.
 
@@ -401,7 +405,7 @@ class FrameRecord:
 class FrameDataset:
     """High-level wrapper around a Lance dataset storing Frames."""
 
-    def __init__(self, dataset: "_lance_ds.Dataset") -> None:  # noqa: D401
+    def __init__(self, dataset: _lance_ds.Dataset) -> None:  # noqa: D401
         self._dataset = dataset
 
     # ------------------------------------------------------------------
@@ -414,7 +418,7 @@ class FrameDataset:
         path: str | Path,
         embed_dim: int = DEFAULT_EMBED_DIM,
         overwrite: bool = False,
-    ) -> "FrameDataset":
+    ) -> FrameDataset:
         """Create a new, empty Lance dataset at *path*."""
         path = str(path)
         schema = get_schema(embed_dim)
@@ -427,7 +431,7 @@ class FrameDataset:
         return cls(ds)
 
     @classmethod
-    def open(cls, path: str | Path, version: int | None = None) -> "FrameDataset":
+    def open(cls, path: str | Path, version: int | None = None) -> FrameDataset:
         """Open an existing Lance dataset."""
         ds = _lance_ds(str(path), version=version)
         return cls(ds)
@@ -580,10 +584,10 @@ class FrameDataset:
     # Versioning wrappers
     # ------------------------------------------------------------------
 
-    def versions(self) -> List[int]:  # noqa: D401
+    def versions(self) -> list[int]:  # noqa: D401
         return list(range(self._dataset.version + 1))
 
-    def checkout(self, version: int) -> "FrameDataset":  # noqa: D401
+    def checkout(self, version: int) -> FrameDataset:  # noqa: D401
         return FrameDataset.open(self._dataset.uri, version=version)
 
     # ------------------------------------------------------------------
@@ -601,7 +605,7 @@ class FrameDataset:
     # Collection management helpers
     # ------------------------------------------------------------------
 
-    def get_collection_header(self, collection_name: str) -> Optional[FrameRecord]:
+    def get_collection_header(self, collection_name: str) -> FrameRecord | None:
         """Return the *Collection Header* record for *collection_name*.
 
         The helper follows the *Collection Header* convention where the
@@ -626,7 +630,7 @@ class FrameDataset:
         # We first narrow down to rows that belong to the collection to avoid
         # scanning the entire dataset.
         tbl = self.scanner(filter=f"collection = '{collection_name}'").to_table()
-        header: Optional[FrameRecord] = None
+        header: FrameRecord | None = None
         for i in range(tbl.num_rows):
             fr = FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri))
             meta = fr.metadata
@@ -639,7 +643,7 @@ class FrameDataset:
                 header = fr
         return header
 
-    def get_collection_members(self, collection_name: str, *, include_header: bool = False) -> List[FrameRecord]:
+    def get_collection_members(self, collection_name: str, *, include_header: bool = False) -> list[FrameRecord]:
         """Return all *member* records for *collection_name*.
 
         Parameters
@@ -651,7 +655,7 @@ class FrameDataset:
             returned list.  Defaults to *False*.
         """
         tbl = self.scanner(filter=f"collection = '{collection_name}'").to_table()
-        out: List[FrameRecord] = []
+        out: list[FrameRecord] = []
         for i in range(tbl.num_rows):
             fr = FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri))
             meta = fr.metadata
@@ -663,7 +667,7 @@ class FrameDataset:
             out.append(fr)
         return out
 
-    def get_members_linked_to_header(self, header_uuid: str) -> List[FrameRecord]:
+    def get_members_linked_to_header(self, header_uuid: str) -> list[FrameRecord]:
         """Return all *member* records that include a relationship linking to *header_uuid*.
 
         The function inspects the ``relationships`` metadata array of each
@@ -687,7 +691,7 @@ class FrameDataset:
         # supported yet, so we load the *relationships* column for all rows
         # and apply filtering in Python.
         tbl = self._dataset.to_table(columns=None)  # include all columns so we can build FrameRecord later
-        members: List[FrameRecord] = []
+        members: list[FrameRecord] = []
         for i in range(tbl.num_rows):
             fr = FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri))
             for rel in fr.metadata.get("relationships", []) or []:
@@ -695,20 +699,14 @@ class FrameDataset:
                 # identifier fields.  Match against any of them so the caller
                 # can pass the UUID irrespective of the exact field used.
                 identifier_match = False
-                if rel.get("id") == header_uuid:
-                    identifier_match = True
-                elif rel.get("path") == header_uuid:
-                    identifier_match = True
-                elif rel.get("uri") == header_uuid:
-                    identifier_match = True
-                elif rel.get("cid") == header_uuid:
+                if rel.get("id") == header_uuid or rel.get("path") == header_uuid or rel.get("uri") == header_uuid or rel.get("cid") == header_uuid:
                     identifier_match = True
 
                 if identifier_match and rel.get("type") == "member_of":
                     members.append(fr)
                     break  # no need to inspect other relationships for this record 
 
-    def find_by_status(self, status: str) -> List[FrameRecord]:
+    def find_by_status(self, status: str) -> list[FrameRecord]:
         """Return all records whose ``status`` metadata exactly matches *status*.
 
         The helper utilises Lance's SQL‐style predicate push-down to filter
@@ -732,7 +730,7 @@ class FrameDataset:
         # Build a simple equality filter which Lance can execute efficiently.
         filter_str = f"status = '{status}'"
         tbl = self.scanner(filter=filter_str).to_table()
-        records: List[FrameRecord] = []
+        records: list[FrameRecord] = []
         for i in range(tbl.num_rows):
             records.append(
                 FrameRecord.from_arrow(
@@ -742,7 +740,7 @@ class FrameDataset:
             )
         return records
 
-    def find_by_tag(self, tag: str) -> List[FrameRecord]:
+    def find_by_tag(self, tag: str) -> list[FrameRecord]:
         """Return all records that contain *tag* in their ``tags`` list.
 
         Notes
@@ -762,7 +760,7 @@ class FrameDataset:
         # usually small in size the simpler approach of reading everything
         # at once is acceptable for now.
         tbl = self.scanner().to_table()
-        records: List[FrameRecord] = []
+        records: list[FrameRecord] = []
         tags_col = tbl.column("tags")
         for i in range(tbl.num_rows):
             raw_tags = tags_col[i].as_py()  # returns list | None
@@ -778,8 +776,8 @@ class FrameDataset:
     def find_related_to(
         self,
         identifier: str,
-        relationship_type: Optional[str] = None,
-    ) -> List[FrameRecord]:
+        relationship_type: str | None = None,
+    ) -> list[FrameRecord]:
         """Return records that have a relationship pointing at *identifier*.
 
         The function inspects each row's ``relationships`` column (a
@@ -811,7 +809,7 @@ class FrameDataset:
         except Exception:  # pragma: no cover – fallback path for older Lance
             tbl = self.scanner().to_table()
 
-        records: List[FrameRecord] = []
+        records: list[FrameRecord] = []
         rels_col = tbl.column("relationships")
         for i in range(tbl.num_rows):
             rels = rels_col[i].as_py()
@@ -838,7 +836,7 @@ class FrameDataset:
     # Additional scalar metadata helpers
     # ------------------------------------------------------------------
 
-    def find_by_author(self, author: str) -> List[FrameRecord]:
+    def find_by_author(self, author: str) -> list[FrameRecord]:
         """Return all records whose ``author`` column equals *author*."""
         tbl = self.scanner(filter=f"author = '{author}'").to_table()
         return [
@@ -846,7 +844,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_by_collection(self, collection: str, *, include_header: bool = False) -> List[FrameRecord]:
+    def find_by_collection(self, collection: str, *, include_header: bool = False) -> list[FrameRecord]:
         """Fetch all rows that belong to *collection*.
 
         Parameters
@@ -866,7 +864,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_by_record_type(self, record_type: str) -> List[FrameRecord]:
+    def find_by_record_type(self, record_type: str) -> list[FrameRecord]:
         """Return rows whose ``record_type`` equals *record_type*."""
         tbl = self.scanner(filter=f"record_type = '{record_type}'").to_table()
         return [
@@ -874,7 +872,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_by_source_type(self, source_type: str) -> List[FrameRecord]:
+    def find_by_source_type(self, source_type: str) -> list[FrameRecord]:
         """Return rows with a matching ``source_type`` value."""
         tbl = self.scanner(filter=f"source_type = '{source_type}'").to_table()
         return [
@@ -882,7 +880,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_since(self, date_iso: str) -> List[FrameRecord]:
+    def find_since(self, date_iso: str) -> list[FrameRecord]:
         """Return rows whose ``updated_at`` column >= *date_iso* (YYYY-MM-DD)."""
         tbl = self.scanner(filter=f"updated_at >= '{date_iso}'").to_table()
         return [
@@ -890,7 +888,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_between(self, start_iso: str, end_iso: str) -> List[FrameRecord]:
+    def find_between(self, start_iso: str, end_iso: str) -> list[FrameRecord]:
         """Return rows whose ``updated_at`` date lies in *[start_iso, end_iso]*."""
         filter_str = f"updated_at >= '{start_iso}' AND updated_at <= '{end_iso}'"
         tbl = self.scanner(filter=filter_str).to_table()
@@ -899,7 +897,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def find_by_uuid_list(self, uuids: List[str]) -> List[FrameRecord]:
+    def find_by_uuid_list(self, uuids: list[str]) -> list[FrameRecord]:
         """Return rows whose UUID is in *uuids* list."""
         if not uuids:
             return []
@@ -920,12 +918,12 @@ class FrameDataset:
         for i in range(tbl.num_rows):
             yield FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri))
 
-    def find_by_any_tag(self, tags: List[str]) -> List[FrameRecord]:
+    def find_by_any_tag(self, tags: list[str]) -> list[FrameRecord]:
         """Return rows that contain *at least one* tag from *tags*."""
         if not tags:
             return []
         tbl = self.scanner().to_table()
-        results: List[FrameRecord] = []
+        results: list[FrameRecord] = []
         tags_col = tbl.column("tags")
         tag_set = set(tags)
         for i in range(tbl.num_rows):
@@ -934,13 +932,13 @@ class FrameDataset:
                 results.append(FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri)))
         return results
 
-    def find_by_all_tags(self, tags: List[str]) -> List[FrameRecord]:
+    def find_by_all_tags(self, tags: list[str]) -> list[FrameRecord]:
         """Return rows that contain *all* tags in *tags*."""
         if not tags:
             return []
         required = set(tags)
         tbl = self.scanner().to_table()
-        results: List[FrameRecord] = []
+        results: list[FrameRecord] = []
         tags_col = tbl.column("tags")
         for i in range(tbl.num_rows):
             row_tags = tags_col[i].as_py()
@@ -948,10 +946,10 @@ class FrameDataset:
                 results.append(FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri)))
         return results
 
-    def find_custom_metadata(self, key: str, value: Optional[str] = None) -> List[FrameRecord]:
+    def find_custom_metadata(self, key: str, value: str | None = None) -> list[FrameRecord]:
         """Return rows whose ``custom_metadata`` map contains *key* (and optionally *value*)."""
         tbl = self.scanner().to_table()
-        results: List[FrameRecord] = []
+        results: list[FrameRecord] = []
         meta_col = tbl.column("custom_metadata")
         for i in range(tbl.num_rows):
             mapping = meta_col[i].as_py()
@@ -961,11 +959,11 @@ class FrameDataset:
                 results.append(FrameRecord.from_arrow(tbl.slice(i, 1), dataset_path=Path(self._dataset.uri)))
         return results
 
-    def find_by_contributor(self, contributor: str) -> List[FrameRecord]:
+    def find_by_contributor(self, contributor: str) -> list[FrameRecord]:
         """Return rows whose ``contributors`` list contains *contributor*."""
         tbl = self.scanner().to_table()
         contrib_col = tbl.column("contributors")
-        results: List[FrameRecord] = []
+        results: list[FrameRecord] = []
         for i in range(tbl.num_rows):
             contribs = contrib_col[i].as_py()
             if contribs and contributor in contribs:
@@ -976,7 +974,7 @@ class FrameDataset:
     # Vector / full-text search convenience wrappers
     # ------------------------------------------------------------------
 
-    def _knn_table(self, query_vector: np.ndarray, k: int = 10, *, filter: Optional[str] = None, **extra_scan) -> pa.Table:
+    def _knn_table(self, query_vector: np.ndarray, k: int = 10, *, filter: str | None = None, **extra_scan) -> pa.Table:
         """Internal helper returning a pyarrow Table with *k* nearest neighbours."""
         nearest_cfg = {"column": "vector", "q": query_vector, "k": k}
         if filter is None:
@@ -984,7 +982,7 @@ class FrameDataset:
         # Use scanner so we can combine nearest + filter push-down when provided.
         return self.scanner(nearest=nearest_cfg, filter=filter, **extra_scan).to_table()
 
-    def knn_search(self, query_vector: np.ndarray, k: int = 10, *, filter: Optional[str] = None, **extra_scan) -> List[FrameRecord]:
+    def knn_search(self, query_vector: np.ndarray, k: int = 10, *, filter: str | None = None, **extra_scan) -> list[FrameRecord]:
         """Return the *k* nearest neighbours to *query_vector* as FrameRecords.
 
         Parameters
@@ -1006,7 +1004,7 @@ class FrameDataset:
             for i in range(tbl.num_rows)
         ]
 
-    def full_text_search(self, query: str, *, columns: Optional[List[str]] = None, k: int = 100) -> List[FrameRecord]:
+    def full_text_search(self, query: str, *, columns: list[str] | None = None, k: int = 100) -> list[FrameRecord]:
         """Run a BM25 full-text search.
 
         Parameters
@@ -1029,7 +1027,7 @@ class FrameDataset:
     # Generic scanner / streaming utilities
     # ------------------------------------------------------------------
 
-    def scanner_for(self, **preds) -> "_lance_ds.Scanner":
+    def scanner_for(self, **preds) -> _lance_ds.Scanner:
         """Return a *LanceScanner* built from keyword-style equality predicates.
 
         Example::
@@ -1047,8 +1045,7 @@ class FrameDataset:
         scanner = self.scanner(filter=filter, batch_size=batch_size)
         for batch in scanner.to_batches():
             table = pa.Table.from_batches([batch])
-            for fr in self._iter_records_table(table):
-                yield fr
+            yield from self._iter_records_table(table)
 
     def count_by_filter(self, filter: str) -> int:
         """Return the number of rows that satisfy *filter*."""
@@ -1061,8 +1058,8 @@ class FrameDataset:
     def create_vector_index(
         self,
         index_type: str = "IVF_PQ",
-        num_partitions: Optional[int] = None,
-        num_sub_vectors: Optional[int] = None,
+        num_partitions: int | None = None,
+        num_sub_vectors: int | None = None,
         replace: bool = True,
         **kwargs,
     ) -> None:

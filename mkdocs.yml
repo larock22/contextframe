@@ -1,11 +1,11 @@
 site_name: ContextFrame
 site_author: Grey Haven
-site_description: ContextFrame: A global standard file specification for document management
+site_description: ContextFrame - A global standard file specification for document management
 repo_name: contextframe
 repo_url: https://github.com/greyhaven-ai/contextframe/
 site_url: https://contextframe.org/
 edit_uri: edit/main/docs/
-copyright: Copyright &copy; 2025 Datapack 
+# copyright: Copyright &copy; 2025 Datapack 
 theme:
   name: material
   icon:
@@ -88,8 +88,8 @@ markdown_extensions:
   - pymdownx.caret
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: 'material.extensions.emoji.to_svg'
+      emoji_index: 'material.extensions.emoji.twemoji'
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -110,12 +110,12 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          format: 'pymdownx.superfences.fence_code_format'
   - pymdownx.tabbed:
       alternate_style: true
       combine_header_slug: true
-      slugify: !!python/object/apply:pymdownx.slugs.slugify
-        kwds:
+      slugify: 'pymdownx.slugs.slugify'
+      kwds:
           case: lower
   - pymdownx.tasklist:
       custom_checkbox: true
@@ -157,7 +157,7 @@ plugins:
             allow_inspection: true
             show_bases: true
   - blog:
-      enabled: !ENV CI
+      enabled: false
       blog_dir: "blog"
       blog_toc: true
       post_dir: blog/posts
@@ -171,7 +171,7 @@ plugins:
       categories:
         - categories
         - tags 
-      enabled: !ENV [CI, false]
+      enabled: false
 extra:
   analytics:
     provider: google
@@ -193,4 +193,3 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/greyhaven-ai/contextframe
-copyright: Copyright &copy; 2025 Grey Haven, LLC

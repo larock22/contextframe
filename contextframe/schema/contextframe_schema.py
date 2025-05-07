@@ -145,7 +145,7 @@ def build_schema(embed_dim: int = DEFAULT_EMBED_DIM) -> pa.Schema:  # noqa: D401
     return pa.schema(fields)
 
 
-def get_schema(embed_dim: Optional[int] = None) -> pa.Schema:  # noqa: D401
+def get_schema(embed_dim: int | None = None) -> pa.Schema:  # noqa: D401
     """Public helper returning the canonical schema.
 
     Lazily creates and caches the schema object.

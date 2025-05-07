@@ -131,6 +131,11 @@
         "type": "string",
         "description": "IANA MIME type of the embedded raw_data (e.g., image/jpeg, audio/wav). Required if raw_data is present."
     },
+    "raw_data": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Raw binary data, typically base64 encoded if represented in JSON."
+    },
     "relationships": {
       "type": "array",
       "description": "References to related documents",

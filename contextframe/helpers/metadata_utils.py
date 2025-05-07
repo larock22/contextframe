@@ -19,7 +19,7 @@ from __future__ import annotations
 import datetime as _dt
 import re
 import uuid as _uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 # ---------------------------------------------------------------------------
 # Constants / basic validation helpers
@@ -29,7 +29,7 @@ DATE_FORMAT = "%Y-%m-%d"
 
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
-STANDARD_METADATA_FIELDS: Dict[str, Dict[str, Any]] = {
+STANDARD_METADATA_FIELDS: dict[str, dict[str, Any]] = {
     "title": {"type": str, "required": True, "description": "Document title"},
     "version": {"type": str, "required": False, "description": "Semantic version"},
     "context": {"type": str, "required": False},
@@ -99,7 +99,7 @@ DEFAULT_METADATA = {
     "created_at": _dt.date.today().strftime(DATE_FORMAT),
 }
 
-def _merge(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
+def _merge(d1: dict[str, Any], d2: dict[str, Any]) -> dict[str, Any]:
     out = d1.copy()
     for k, v in d2.items():
         if k in out and isinstance(out[k], dict) and isinstance(v, dict):
@@ -109,7 +109,7 @@ def _merge(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def create_metadata(base: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Dict[str, Any]:
+def create_metadata(base: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
     """Return a new metadata dict with defaults applied and a UUID ensured."""
     meta = _merge(DEFAULT_METADATA, base or {})
     meta = _merge(meta, kwargs)
@@ -126,14 +126,14 @@ def create_relationship(
     reference: str,
     rel_type: str = "related",
     *,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-) -> Dict[str, Any]:
+    title: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
     """Create a relationship object compatible with the JSON schema."""
     if rel_type not in VALID_RELATIONSHIP_TYPES:
         raise ValueError(f"rel_type must be one of {sorted(VALID_RELATIONSHIP_TYPES)}")
 
-    rel: Dict[str, Any] = {"type": rel_type}
+    rel: dict[str, Any] = {"type": rel_type}
     if is_valid_uuid(reference):
         rel["id"] = reference
     else:
@@ -146,11 +146,11 @@ def create_relationship(
     return rel
 
 
-def add_relationship_to_metadata(meta: Dict[str, Any], rel: Dict[str, Any]) -> None:
+def add_relationship_to_metadata(meta: dict[str, Any], rel: dict[str, Any]) -> None:
     meta.setdefault("relationships", []).append(rel)
 
 
-def validate_relationships(rels: List[Dict[str, Any]]) -> None:
+def validate_relationships(rels: list[dict[str, Any]]) -> None:
     for r in rels:
         if "type" not in r or r["type"] not in VALID_RELATIONSHIP_TYPES:
             raise ValueError(f"Invalid relationship type in {r}")

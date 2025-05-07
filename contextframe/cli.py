@@ -7,15 +7,15 @@ embeddings).
 """
 
 import argparse
+import json
 import os
 import sys
-import json
-from pathlib import Path
-from typing import Optional, List
 
 # Use direct imports from local modules
 from .frame import FrameRecord
 from .versioning import get_version_manager
+from pathlib import Path
+from typing import Optional
 
 # Import command modules
 
@@ -139,7 +139,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: Optional[List[str]] = None) -> int:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for the CLI.
     
@@ -245,7 +245,7 @@ def _handle_create(args):
     elif args.content:
         content = args.content
     elif args.content_file:
-        with open(args.content_file, "r", encoding="utf-8") as f:
+        with open(args.content_file, encoding="utf-8") as f:
             content = f.read()
     
     try:
@@ -470,8 +470,7 @@ def _handle_version_compare(args):
             # Content differences
             print("\nContent differences:")
             content_diff = diff["content_diff"]
-            line_num = 0
-            for entry in content_diff:
+            for line_num, entry in enumerate(content_diff):
                 if entry["op"] == "add":
                     print(f"  + {entry['text']}")
                 elif entry["op"] == "remove":
@@ -480,7 +479,6 @@ def _handle_version_compare(args):
                     # Only show a few context lines
                     if line_num % 20 == 0:
                         print(f"  {entry['text']}")
-                line_num += 1
             
             print(f"\nTotal changes: {len([d for d in content_diff if d['op'] != 'unchanged'])} lines")
         
@@ -504,7 +502,7 @@ def _handle_version_rollback(args):
         
         # Perform rollback
         create_backup = not args.no_backup
-        updated_path = vm.rollback_to_version(file_path, args.version, create_backup)
+        vm.rollback_to_version(file_path, args.version, create_backup)
         
         print(f"Successfully rolled back {file_path.name} to version {args.version}")
         if create_backup:
@@ -564,7 +562,7 @@ def _handle_version_merge(args):
         create_backup = not args.no_backup
         merged_path = vm.merge_branch(branch_path, target_path, create_backup)
         
-        print(f"Successfully merged {branch_path.name} into {target_path.name}")
+        print(f"Successfully merged {branch_path.name} into {target_path.name}. Merged file: {merged_path}")
         if create_backup:
             print("A backup of the target document was created")
         
@@ -677,7 +675,7 @@ def _handle_conflict_merge(args):
         # Try to auto-merge
         from .conflict import ConflictError
         try:
-            merged_doc = local_doc.auto_merge(remote_doc, output_path)
+            _ = local_doc.auto_merge(remote_doc, output_path)
             print(f"Successfully merged documents to {output_path}")
             return 0
         except ConflictError as e:
@@ -732,7 +730,7 @@ def _handle_conflict_apply_resolution(args):
         # Apply resolution
         from .conflict import ConflictError
         try:
-            resolved_doc = FrameRecord.resolve_from_conflict_file(resolution_path, output_path)
+            _ = FrameRecord.resolve_from_conflict_file(resolution_path, output_path)
             print(f"Successfully applied conflict resolution to {output_path}")
             return 0
         except ConflictError as e:
