@@ -3,7 +3,7 @@ title: "Python API Reference"
 summary: "Comprehensive reference for the ContextFrame Python package."
 ---
 
-# ContextFrame Python API Reference
+## ContextFrame Python API Reference
 
 This page provides a **single-stop reference** for the public Python surface exposed by the `contextframe` package. It combines:
 
@@ -88,5 +88,3 @@ The helper functions shown below are especially handy when you manipulate metada
     options:
       heading_level: 3
       filters: ["create_metadata", "create_relationship", "add_relationship_to_metadata", "validate_relationships"]
-
-

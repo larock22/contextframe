@@ -49,4 +49,4 @@ FrameDataset.open("mydoc.lance")._native.cleanup_old_versions(keep=10)
 to keep only the last 10 versions (**irreversible**).
 
 > **Best practice** — Keep enough history for debugging / reproducibility, then
-> schedule periodic clean-ups. 
+> schedule periodic clean-ups.

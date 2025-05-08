@@ -19,11 +19,11 @@ from typing import Any, Optional, Union
 
 try:
     import lance
-    from lance import dataset as _lance_ds
 except ModuleNotFoundError as exc:
     raise ImportError("lance is required for contextframe.frame. Please install contextframe with the 'lance' extra.") from exc
 
-from . import add_relationship_to_metadata, create_relationship, get_schema
+from .helpers.metadata_utils import add_relationship_to_metadata, create_relationship
+from .schema import get_schema
 from .schema.contextframe_schema import DEFAULT_EMBED_DIM
 from .schema.validation import validate_metadata_with_schema
 
@@ -338,10 +338,7 @@ class FrameRecord:
         # Only wrap in Path for local paths where OS checks make sense.
         dataset_path_obj: Path | None = None if is_remote else Path(raw_uri)
 
-        if not is_remote:
-            dataset_path = dataset_path_obj  # type: ignore[assignment]
-        else:
-            dataset_path = raw_uri  # type: ignore[assignment]
+        dataset_path = dataset_path_obj if not is_remote else raw_uri
 
         # Suffix checks only apply to local Path objects.
         if (not is_remote and dataset_path_obj and dataset_path_obj.suffix != ".lance") or (
@@ -533,7 +530,7 @@ class FrameRecord:
 class FrameDataset:
     """High-level wrapper around a Lance dataset storing Frames."""
 
-    def __init__(self, dataset: _lance_ds.Dataset) -> None:
+    def __init__(self, dataset: lance.LanceDataset) -> None:
         """Initialize a FrameDataset with a Lance dataset."""
         self._dataset = dataset
 
@@ -609,9 +606,9 @@ class FrameDataset:
         """
         raw_uri = str(path)
         if storage_options is None:
-            ds = _lance_ds(raw_uri, version=version)
+            ds = lance.dataset(raw_uri, version=version)
         else:
-            ds = _lance_ds(raw_uri, version=version, storage_options=storage_options)
+            ds = lance.dataset(raw_uri, version=version, storage_options=storage_options)
         return cls(ds)
 
     # ------------------------------------------------------------------
@@ -1222,7 +1219,7 @@ class FrameDataset:
     # Generic scanner / streaming utilities
     # ------------------------------------------------------------------
 
-    def scanner_for(self, **preds) -> _lance_ds.Scanner:
+    def scanner_for(self, **preds) -> lance.LanceScanner:
         """Return a *LanceScanner* built from keyword-style equality predicates.
 
         Example::

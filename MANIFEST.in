@@ -1,14 +1,1 @@
-# Include all README files
-include contextframe/README.md
-include contextframe/commands/README.md
-include contextframe/tests/README.md
-
-# Include examples
 include contextframe/examples/*.lance
-include contextframe/examples/*.md
-
-# Include schema files
-include contextframe/schema/*.json
-
-# Include package data
-global-include *.txt *.rst *.md 

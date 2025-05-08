@@ -3,7 +3,7 @@ title: "Lance Dataset Anatomy"
 summary: "What lives inside a *.lance* directory and how ContextFrame uses it."
 ---
 
-# Anatomy of a Lance Dataset
+## Anatomy of a Lance Dataset
 
 A **ContextFrame** dataset *is* a [Lance](https://lancedb.github.io/lance/index.html) dataset.  Every time you call
 `FrameRecord.save()` or `FrameDataset.create()` the library writes a directory
@@ -95,4 +95,4 @@ work loss.
    implementation detail unless you have a special use-case.
 
 Continue to [How a Frame maps to Lance columns](frame_storage.md) to see the
-exact column-level mapping. 
+exact column-level mapping.

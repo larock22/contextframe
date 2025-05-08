@@ -3,7 +3,7 @@ title: "Working with Blobs (Large Binary Data)"
 summary: "Store and lazily retrieve images, audio, videos and any binary objects with ContextFrame."
 ---
 
-# Storing Large Binary Objects
+## Storing Large Binary Objects
 
 ContextFrame supports **multimodal workloads** – you can attach images, audio, video or arbitrary binary files to any `FrameRecord`.
 
@@ -14,18 +14,18 @@ Under the hood the library uses the [*Blob as Files* feature of Lance](https://l
 1. The canonical schema defines a `raw_data` column as `large_binary()` and marks it with `"lance-encoding:blob": "true"`.  This tells the Lance engine that the column should be stored as an external blob segment.
 2. When you create a `FrameRecord` you can pass a byte buffer and a MIME-type:
 
-```python
-from contextframe import FrameRecord, MimeTypes
+    ```python
+    from contextframe import FrameRecord, MimeTypes
 
-jpeg_bytes = open("cat.jpg", "rb").read()
-rec = FrameRecord.create(
-    title="Cute Cat",
-    content="An image of a cute cat.",
-    raw_data=jpeg_bytes,
-    raw_data_type=MimeTypes.IMAGE_JPEG,
-)
-rec.save("cat_collection.lance")
-```
+    jpeg_bytes = open("cat.jpg", "rb").read()
+    rec = FrameRecord.create(
+        title="Cute Cat",
+        content="An image of a cute cat.",
+        raw_data=jpeg_bytes,
+        raw_data_type=MimeTypes.IMAGE_JPEG,
+    )
+    rec.save("cat_collection.lance")
+    ```
 
 3. Later, instead of materialising the whole column you can retrieve a **streaming blob file**:
 
@@ -66,4 +66,4 @@ Yes.  Blob data is chunked and stored alongside the manifest files, honouring th
 
 ### Can I have multiple blob columns?
 
-Absolutely – just add additional `large_binary()` fields with the same blob metadata flag when defining a custom schema. 
+Absolutely – just add additional `large_binary()` fields with the same blob metadata flag when defining a custom schema.

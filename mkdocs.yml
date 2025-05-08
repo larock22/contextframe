@@ -122,6 +122,7 @@ markdown_extensions:
   - pymdownx.tilde
 nav:
   - Home: 'index.md'
+  - Quick Start: 'quickstart.md'
   - Specification:
 
   - Core Concepts:
@@ -137,6 +138,15 @@ nav:
   - Community:
 
   - User Guide:
+    - Basics Tutorial: 'tutorials/basics_tutorial.md'
+    - FastAPI Vector Search: 'recipes/fastapi_vector_search.md'
+    - Bulk Ingest & Embedding: 'recipes/bulk_ingest_embedding.md'
+    - Store Images as Blobs: 'recipes/store_images_blobs.md'
+    - S3 Round-Trip: 'recipes/s3_roundtrip.md'
+    - Collections & Relationships: 'recipes/collections_relationships.md'
+    - Schema Cheatsheet: 'concepts/schema_cheatsheet.md'
+    - FAQ: 'faq.md'
+    - Troubleshooting: 'troubleshooting.md'
 
   - Examples:
 

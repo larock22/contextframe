@@ -22,8 +22,10 @@ from .helpers.metadata_utils import (
     compare_semantic_versions,
     create_metadata,
     create_relationship,
+    generate_uuid,
     get_standard_fields,
     is_semantic_version,
+    is_valid_uuid,
     next_version,
     validate_relationships,
 )  # noqa: E402
@@ -52,6 +54,8 @@ __all__ = [
     "compare_semantic_versions",
     "next_version",
     "get_standard_fields",
+    "generate_uuid",
+    "is_valid_uuid",
     # Schema access
     "get_schema",
     "RecordType",

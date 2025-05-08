@@ -23,7 +23,7 @@ Below you will find concrete, copy-paste ready examples for the three major prov
 All snippets assume you have already installed the extra dependencies:
 
 ```bash
-pip install contextframe[lance]  # installs the Lance PyPI package
+pip install contextframe
 ```
 
 ---
@@ -208,4 +208,4 @@ Lance offers an *experimental* DynamoDB-based commit mechanism (see the upstream
 
 * Head back to the [Python API reference](python_api.md) for class-level details.
 * Consult the official [Lance object store documentation](https://lancedb.github.io/lance/object_store.html) for advanced configuration options.
-* Follow the [Quick-Start](../quickstart.md) guide to learn the basics of ContextFrame. 
+* Follow the [Quick-Start](../quickstart.md) guide to learn the basics of ContextFrame.

@@ -65,4 +65,4 @@ internal metadata.
 ---
 
 **Next:** [Dataset Anatomy](dataset_layout.md) explains how these columns end up
-on disk and how to maintain a healthy dataset over time. 
+on disk and how to maintain a healthy dataset over time.

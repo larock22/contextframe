@@ -222,6 +222,8 @@ __all__ = [
     "is_semantic_version",
     "compare_semantic_versions",
     "next_version",
+    "generate_uuid",
+    "is_valid_uuid",
 ]
 
 
