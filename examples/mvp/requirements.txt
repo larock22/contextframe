@@ -1,0 +1,6 @@
+lance==0.9.3
+fastapi
+uvicorn
+sentence-transformers
+openai
+tiktoken
