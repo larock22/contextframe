@@ -197,3 +197,6 @@ terraform.rc
 # INCLUDE
 !.vscode/
 .aider*
+
+# Lance DB
+/examples/mvp/kb.lance/
