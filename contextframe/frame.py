@@ -142,7 +142,7 @@ class FrameRecord:
 
     def to_table(self) -> pa.Table:
         """Return a 1-row Arrow Table matching the canonical schema."""
-        schema = get_schema(self.embed_dim)
+        schema = get_schema(embed_dim=self.embed_dim)
         arrays: dict[str, pa.Array] = {}
 
         # Mapping between schema fields and metadata / attributes
@@ -569,11 +569,11 @@ class FrameDataset:
         raw_uri = str(path)
         is_remote = "://" in raw_uri
 
-        schema = get_schema(embed_dim)
+        schema = get_schema(embed_dim=embed_dim)
 
         if not is_remote and Path(raw_uri).exists() and not overwrite:
             raise FileExistsError(f"Dataset already exists at {path}. Pass overwrite=True to recreate.")
-        tbl = pa.Table.from_arrays([], schema=schema)  # empty table with schema
+        tbl = schema.empty_table()
         # `write_dataset` will create or overwrite based on directory state.
         # We wiped any existing dir in caller, so simply write.
         if storage_options is None:

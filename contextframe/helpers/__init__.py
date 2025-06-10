@@ -12,7 +12,8 @@ from .metadata_utils import (
     is_semantic_version,
     is_valid_uuid,
     next_version,
-    validate_relationships,
+    get_embedding_model,
+    get_embed_dim_for_model,
 )
 
 __all__ = [
@@ -25,5 +26,6 @@ __all__ = [
     "is_semantic_version",
     "is_valid_uuid",
     "next_version",
-    "validate_relationships",
-] 
+    "get_embedding_model",
+    "get_embed_dim_for_model",
+]

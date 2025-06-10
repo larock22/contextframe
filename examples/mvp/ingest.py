@@ -1,39 +1,41 @@
 from pathlib import Path
-import numpy as np
-from sentence_transformers import SentenceTransformer
-from contextframe import FrameRecord, FrameDataset, RecordType
-
 import argparse
+from contextframe.frame import FrameRecord, FrameDataset
+from contextframe.helpers import get_embedding_model, get_embed_dim_for_model
+from contextframe.schema import RecordType
 
 def main():
     parser = argparse.ArgumentParser(description="Bulk-ingest markdown files into Lance dataset with embeddings.")
     parser.add_argument("--docs", type=str, default="./sample_docs", help="Directory containing markdown files")
-    parser.add_argument("--dataset", type=str, default="./kb.lance", help="Lance dataset path (.lance)")
-    parser.add_argument("--model", type=str, default="sentence-transformers/all-MiniLM-L6-v2", help="SentenceTransformer model")
+    parser.add_argument("--dataset", type=str, required=True, help="Path to Lance dataset")
+    parser.add_argument("--model", type=str, default="all-MiniLM-L6-v2", help="SentenceTransformer model name")
     args = parser.parse_args()
 
-    MODEL = SentenceTransformer(args.model)
-    DS = FrameDataset.open(args.dataset)
-
-    def embed(text: str) -> np.ndarray:
-        return MODEL.encode([text])[0].astype(np.float32)
+    ds = FrameDataset.open(args.dataset)
+    model_name = f"sentence-transformers/{args.model}" if not args.model.startswith("sentence-transformers/") else args.model
+    model = get_embedding_model(model_name)
+    embed_dim = get_embed_dim_for_model(model_name)
 
     root = Path(args.docs)
-    n = 0
-    for f in root.rglob("*.md"):
-        text = f.read_text(encoding="utf-8")
+    n_ingested = 0
+    for path in root.glob("**/*.md"):
+        print(f"Ingesting {path}...")
+        content = path.read_text(encoding="utf-8")
+        title = path.stem
+
         rec = FrameRecord.create(
-            title = f.name,
-            content = text,
-            vector = embed(text),
-            tags = [f.suffix.lstrip(".")],
-            source_file = str(f),
-            record_type = RecordType.DOCUMENT,
+            title=title,
+            content=content,
+            vector=model.encode(content),
+            embed_dim=embed_dim,
+            tags=[path.suffix.lstrip(".")],
+            source_url=path.resolve().as_uri(),
+            record_type=RecordType.DOCUMENT,
         )
-        DS.add(rec)
-        n += 1
-        print(f"Ingested: {f}")
-    print(f"Ingested {n} documents into {args.dataset}")
+        ds.add(rec)
+        n_ingested += 1
+
+    print(f"Ingested {n_ingested} documents into {ds._dataset.uri}")
 
 if __name__ == "__main__":
     main()

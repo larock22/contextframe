@@ -110,7 +110,7 @@ def build_schema(embed_dim: int = DEFAULT_EMBED_DIM) -> pa.Schema:  # noqa: D401
         pa.field("text_content", pa.string()),
         pa.field(
             "vector",
-            pa.fixed_size_list(pa.float32(), embed_dim),
+            pa.list_(pa.float32(), embed_dim),
         ),
         pa.field("title", pa.string(), nullable=False),
         pa.field("version", pa.string()),
@@ -135,7 +135,7 @@ def build_schema(embed_dim: int = DEFAULT_EMBED_DIM) -> pa.Schema:  # noqa: D401
         pa.field("source_type", pa.string()),
         pa.field("source_url", pa.string()),
         pa.field("relationships", pa.list_(relationship_struct)),
-        pa.field("custom_metadata", pa.map_(pa.string(), pa.string())),
+        pa.field("custom_metadata", pa.string()),  # Stored as JSON string
         pa.field("record_type", pa.string()),
         # Optional fields for raw multimodal data
         pa.field("raw_data_type", pa.string()),  # MIME type (e.g., "image/jpeg")
@@ -148,6 +148,11 @@ def build_schema(embed_dim: int = DEFAULT_EMBED_DIM) -> pa.Schema:  # noqa: D401
     ]
 
     return pa.schema(fields)
+
+
+# Cache for generated schemas to avoid redundant creations.
+# Maps embed_dim (or 0 for None) to a PyArrow Schema object.
+_CACHED_SCHEMA: dict[int, pa.Schema] = {}
 
 
 def get_schema(*, embed_dim: int | None = None) -> pa.Schema:  # noqa: D401

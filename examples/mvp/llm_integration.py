@@ -1,6 +1,9 @@
 import os
 import openai
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SEARCH_URL = "http://localhost:8000/query"
 

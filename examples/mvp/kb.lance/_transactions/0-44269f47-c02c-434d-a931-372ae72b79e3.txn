@@ -1,0 +1,8 @@
+$44269f47-c02c-434d-a931-372ae72b79e3²ò$uuid ÿÿÿÿÿÿÿÿÿ*string8Zdefault0text_content ÿÿÿÿÿÿÿÿÿ*string08Zdefault=vector ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:38408Zdefault'title ÿÿÿÿÿÿÿÿÿ*string8Zdefault+version ÿÿÿÿÿÿÿÿÿ*string08Zdefault+context ÿÿÿÿÿÿÿÿÿ*string08Zdefault'uri ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
+local_path ÿÿÿÿÿÿÿÿÿ*string08Zdefault'cid ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
+collection	 ÿÿÿÿÿÿÿÿÿ*string08Zdefault1collection_id
+ ÿÿÿÿÿÿÿÿÿ*string08Zdefault6collection_id_type ÿÿÿÿÿÿÿÿÿ*string08Zdefault+position ÿÿÿÿÿÿÿÿÿ*int3208Zdefault*author ÿÿÿÿÿÿÿÿÿ*string08Zdefault.contributors ÿÿÿÿÿÿÿÿÿ*list08Zdefaultitem *string08Zdefault.
+created_at ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
+updated_at ÿÿÿÿÿÿÿÿÿ*string08Zdefault&tags ÿÿÿÿÿÿÿÿÿ*list08Zdefaultitem *string08Zdefault*status ÿÿÿÿÿÿÿÿÿ*string08Zdefault/source_file ÿÿÿÿÿÿÿÿÿ*string08Zdefault/source_type ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
+source_url ÿÿÿÿÿÿÿÿÿ*string08Zdefault6relationships ÿÿÿÿÿÿÿÿÿ*list.struct08Zdefaultitem *struct0Zdefaulttype *string8Zdefaultid *string08Zdefaulturi *string08Zdefaultpath *string08Zdefaultcid *string08Zdefault title *string08Zdefault&description  *string08Zdefault3custom_metadata! ÿÿÿÿÿÿÿÿÿ*string08Zdefault/record_type" ÿÿÿÿÿÿÿÿÿ*string08Zdefault1raw_data_type# ÿÿÿÿÿÿÿÿÿ*string08ZdefaultOraw_data$ ÿÿÿÿÿÿÿÿÿ*large_binary08R
+lance-encoding:blobtrueZdefault

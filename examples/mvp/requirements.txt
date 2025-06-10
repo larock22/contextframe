@@ -1,6 +1,10 @@
-lance==0.9.3
+lancedb
+numpy
+pandas
+pyarrow>=15.0.0
 fastapi
 uvicorn
 sentence-transformers
 openai
 tiktoken
+python-dotenv

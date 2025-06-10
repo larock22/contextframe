@@ -224,9 +224,47 @@ __all__ = [
     "next_version",
     "generate_uuid",
     "is_valid_uuid",
+    "get_embedding_model",
+    "get_embed_dim_for_model",
 ]
 
 
 def get_standard_fields():  # noqa: D401
     """Return a copy of the standard metadata fields."""
-    return STANDARD_METADATA_FIELDS.copy() 
+    return STANDARD_METADATA_FIELDS.copy()
+
+
+def get_embedding_model(model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    """Get a SentenceTransformer embedding model.
+    
+    Parameters
+    ----------
+    model_name : str
+        Name of the model to load
+        
+    Returns
+    -------
+    SentenceTransformer
+        The loaded model
+    """
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer(model_name)
+
+
+def get_embed_dim_for_model(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> int:
+    """Get the embedding dimension for a given model.
+    
+    Parameters
+    ----------
+    model_name : str
+        Name of the model
+        
+    Returns
+    -------
+    int
+        The embedding dimension
+    """
+    model = get_embedding_model(model_name)
+    # Get a dummy embedding to determine dimension
+    dummy_embedding = model.encode("test", convert_to_numpy=True)
+    return len(dummy_embedding) 
